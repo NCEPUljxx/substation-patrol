@@ -1,0 +1,159 @@
+本地启动演示视频网盘链接：通过网盘分享的文件：分布式启动演示.mp4
+链接: https://pan.baidu.com/s/1GVL9EgS21y1NTN07sl2yOQ?pwd=pnxr 提取码: pnxr 
+--来自百度网盘超级会员v5的分享
+
+建议先看本地启动演示说明之后再看本文件
+分布式启动演示流程
+
+由于不方便借用多台电脑，故只在本地演示分布式启动过程，实际启动方式就是把ABCD分成四台电脑上启动。
+分布式和本地启动的功能完全相同，功能演示请看本地启动的视频。本视频只演示启动过程。
+具体配置和启动方式以及功能请阅读 ".\substation-patrol\README.md" 和 ".\substation-patrol\docs" 中的文档！！！
+
+前提：四人四台电脑，连入同一 WiFi / 局域网，互相能 ping 通
+
+--------------------------------------
+角色分工速查
+--------------------------------------
+
+人员	              	 角色		 本机启动内容	 											需要额外安装的软件
+Person A		基础设施		Docker（Redis + RabbitMQ）+ Controller（最后启动 ）	 	 JDK 17、Docker Desktop
+Person B	  	小车			Car001、Car002、Car003（按 infra.local.json 配置）			  JDK 17（不需要 Docker、Redis、SQL Server）
+Person C		规划模块	 	TaskConfigurator + Navigator + TargetPlanner				 JDK 17（不需要 Docker、Redis、SQL Server）
+                       				 + StrategySupervisor
+Person D		展示+操作	 SQL Server + Display（Web :8887）+ 浏览器操作	   		JDK 17、SQL Server
+
+ 关键约束：
+- 全组只有一套 Redis + RabbitMQ（都在 Person A 的 Docker 里）
+- 全组只有一个 Controller、一个 Display、一个 TaskConfigurator
+- 同 carId（如 Car001）不可在两台电脑各起一个进程
+
+--------------------------------------
+① 四人各自编译项目
+--------------------------------------
+
+每台电脑都执行一次（确保代码一致）：
+cd <项目根目录>
+.\mvnw.cmd install -DskipTests
+不能出现 error，可以忽视 warning。
+
+--------------------------------------
+② 四人各查本机 IP（以后首次联调或者更换网络做一次即可）
+--------------------------------------
+
+每人打开 PowerShell，执行 ipconfig，在「无线局域网适配器 WLAN」下找到 IPv4 地址：
+
+例如我的   IPv4 Address. . . . . . . . . . . : 192.168.5.69
+
+Person A 的 IP → 记为 IP_A（如 192.168.1.101）
+Person D 的 IP → 记为 IP_D（如 192.168.1.104）
+
+Person A 把 IP_A 发到群里；Person D 把 IP_D 发到群里。
+Person B 和 Person C 不需要发自己的 IP。
+
+--------------------------------------
+③ Person A — 首次配置 + 启动基础设施
+--------------------------------------
+
+首次配置（只需做一次）：
+设置ip为localhost
+.\scripts\setup-config.ps1 -Role infra
+
+防火墙放行（管理员 PowerShell，注意是管理员，只需做一次）：
+（由于我是单机，该语句会失效，不进行演示）
+New-NetFirewallRule -DisplayName "Redis6379" -Direction Inbound -Protocol TCP -LocalPort 6379 -Action Allow
+New-NetFirewallRule -DisplayName "RabbitMQ5672" -Direction Inbound -Protocol TCP -LocalPort 5672 -Action Allow
+New-NetFirewallRule -DisplayName "RabbitMQ15672" -Direction Inbound -Protocol TCP -LocalPort 15672 -Action Allow
+
+每次联调启动：
+.\scripts\start-infra.ps1    # 启动 Docker（Redis + RabbitMQ）
+如果personA配置了Docker在其他位置，需要先启动，否则会自动在项目的目录下创建docker。
+这个检测时间会有点长，稍等即可，视频中已跳过。
+自检：docker ps 看到 redis 和 rabbitmq 都在 Up。把 IP_A 发到群里。
+
+--------------------------------------
+④ Person B — 首次配置 + 启动小车
+--------------------------------------
+
+首次配置（只需做一次，将 IP 替换为 Person A 的实际 IP）：
+（由于我是单机，该语句会失效，不进行演示）
+.\scripts\setup-config.ps1 -Role car -InfraHost 192.168.1.101
+
+每次联调启动：
+.\scripts\start-cars.ps1
+
+会按 infra.local.json 的 cars 数组启动小车进程。
+自检：Car 窗口日志中 Redis 地址应为 IP_A:6379（不是 localhost）。
+本机不需要 docker compose 起 Redis！
+
+调整车数：编辑 infra.local.json 的 cars 数组（如加 "Car004"），重跑 start-cars.ps1。
+
+--------------------------------------
+⑤ Person C — 首次配置 + 启动规划模块
+--------------------------------------
+
+首次配置（只需做一次，将 IP 替换为 Person A 的实际 IP）：
+（由于我是单机，该语句会失效，不进行演示）
+.\scripts\setup-config.ps1 -Role planner -InfraHost 192.168.1.101
+
+确认本机没有运行自己的 Docker Redis/RabbitMQ。
+
+每次联调启动：
+.\scripts\start-planner.ps1
+
+会打开 4 个 cmd 窗口：TaskConfigurator → Navigator → TargetPlanner → StrategySupervisor。
+群里回复：「规划模块已就绪」
+
+--------------------------------------
+⑥ Person D — 首次配置 + 启动 Display
+--------------------------------------
+
+首次配置（只需做一次，将 IP 替换为实际的）：
+（由于我是单机，该语句会失效，不进行演示）
+.\scripts\setup-config.ps1 -Role display -InfraHost 192.168.1.101 -DisplayHost 192.168.1.104
+
+其中 -InfraHost 是 Person A 的 IP_A，-DisplayHost 是本机 WiFi IP（IP_D，供他人浏览器访问）。
+
+防火墙放行（管理员 PowerShell，只需做一次）：
+New-NetFirewallRule -DisplayName "Display8887" -Direction Inbound -Protocol TCP -LocalPort 8887 -Action Allow
+
+每次联调启动：
+① 确保本机 SQL Server 已启动
+② .\scripts\start-display.ps1
+③ 群里回复：「Display 已就绪」
+
+SQL Server 只需要在 Person D 的机器上，其他人不需要。
+
+--------------------------------------
+⑦ Person A — 最后启动 Controller
+--------------------------------------
+
+等 B、C、D 都在群里回复「已就绪」后：
+.\scripts\start-controller.ps1
+
+成功标志：Controller 窗口日志显示「控制器已启动，等待任务配置...」
+⚠️ Controller 必须最后启动！！！不要在 B/C/D 就绪前启动。
+
+--------------------------------------
+⑧ Person D — 开始仿真 （因为数据库在Person D上，所以Person D运行会更快，实际上每个人都可以登录这个网站去仿真模拟） 
+--------------------------------------
+
+浏览器打开 http://localhost:8887，登录后点击「开始」。
+
+默认管理员账密：admin / admin123
+
+其他人打开 http://IP_D:8887 观看（IP_D 即 Person D 的局域网 IP）。
+
+说明：
+- Redis、RabbitMQ 配置正确 → 小车正常移动、地图正常探索
+- SQL Server 配置正确 → 登录成功、仿真记录可保存回放
+
+--------------------------------------
+⑨ 联调结束恢复单机
+--------------------------------------
+
+分布式联调后 infra.local.json 指向远程 IP。恢复单机只需：
+.\scripts\setup-config.ps1 -Role infra
+
+会将 redisHost/mqHost 改回 localhost。
+
+Person B 和 Person C 只需要 JDK + 项目源码，其他全都通过网络远程使用！

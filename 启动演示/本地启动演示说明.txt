@@ -1,0 +1,46 @@
+本地启动演示视频网盘链接：通过网盘分享的文件：本地启动演示视频.mp4
+链接: https://pan.baidu.com/s/1blKLvU8iZLBSn2GEUv4iOQ?pwd=e2xt 提取码: e2xt 
+--来自百度网盘超级会员v5的分享
+
+本地启动演示流程
+
+① 启动 Docker 容器（启动Redis、RabbitMQ、SQLServer）
+配置到什么地方都可以，为了便于管理我将他们都放在了WSL中
+
+docker compose up -d
+docker ps    # 确认 redis、rabbitmq、sqlserver 三个都在 Up
+
+② 进入项目目录
+cd e:\华电\资料\计算机\大三\软件体系\综合实验\substation-patrol
+
+③ 编译项目（首次使用/修改代码时）
+用cmd/powershell都可以，要确保在②的路径下
+.\mvnw.cmd install -DskipTests
+不能出现error，可以忽视warning
+
+启动系统
+④ 一键启动
+双击 start_all.bat，会依次弹出 9 个 cmd 窗口：
+
+顺序	窗口标题	模块
+1	TaskConfigurator	任务设置（初始化地图、障碍物、小车出生点）
+2	Navigator	路径规划器
+3	TargetPlanner	目标分配器
+4	StrategySupervisor	路线监督器
+5	Car001	小车 1
+6	Car002	小车 2
+7	Car003	小车 3
+8	Display	Web 服务（HTTP :8887 + WebSocket :8888）
+9	Controller	总调度器（最后启动，开始节拍驱动）
+
+⑤ 打开浏览器，可以正常登录代表SQLServer配置成功
+默认管理员账密：admin admin123
+http://localhost:8887
+
+⑥ 点「开始」 — 小车开始自主探索地图（BFS 路径规划 + 贪心目标分配 + 5 状态机驱动）
+说明Redis、RabbitMQ配置成功
+
+⑦停止系统
+关掉所有 cmd 窗口即可。Docker 容器不需要停，下次直接 start_all.bat。
+
+具体项目功能请看".\substation-patrol\README.md"和"E.\substation-patrol\docs"中的文档
