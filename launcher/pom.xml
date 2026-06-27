@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- ============================================================
+         父 POM
+         ============================================================
+
+         继承 car-homework（根 POM）的:
+           - groupId / version
+           - dependencyManagement（统一管理所有依赖版本）
+           - 公共依赖: slf4j, logback, junit-jupiter
+           - 编译配置: Java 17
+
+         launcher 不需要声明自己的 groupId 和 version，
+         它们从父 POM 继承而来。
+    -->
+    <parent>
+        <groupId>com.substation</groupId>
+        <artifactId>car-homework</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+
+    <!-- ============================================================
+         模块标识
+         ============================================================
+
+         artifactId 在所有模块中唯一，用于:
+           - Maven 坐标引用（其他模块通过此 ID 依赖 launcher）
+           - 生成的 JAR 文件名: launcher-1.0-SNAPSHOT.jar
+    -->
+    <artifactId>launcher</artifactId>
+
+    <!--
+        name 是 Maven 在构建日志中显示的人类可读名称，
+        比 artifactId 更友好。
+    -->
+    <name>Launcher Module</name>
+
+    <!--
+        description 出现在 Maven site 文档和 IDE 提示中，
+        记录此模块的核心职责。
+    -->
+    <description>
+        一键启动器：在同进程内按依赖顺序启动全部 7 个子模块。
+        替代手动逐个执行各模块的 main()，用于开发和演示阶段。
+    </description>
+
+    <!-- ============================================================
+         依赖管理
+         ============================================================
+
+         依赖规则:
+           1. 所有子模块依赖通过 groupId + artifactId 引用
+           2. version 统一使用 ${project.version}（与父 POM 同步）
+           3. 只声明编译和运行必需的模块，测试框架从父 POM 继承
+
+         LauncherMain 需要直接实例化以下模块的入口类:
+           - ControllerMain  → controller 模块
+           - DisplayMain     → display 模块
+         （以下模块待开发完成后添加依赖：
+           - TaskConfigurator → task-configurator 模块
+           - NavigatorMain   → navigator 模块
+           - TargetPlanner   → target-planner 模块
+           - CarMain         → car 模块）
+
+         注意: common 模块虽然被所有模块传递依赖，
+         但 LauncherMain 自身不直接使用 common 的类（通过
+         controller/display 间接依赖），此处显式声明以明确依赖关系。
+    -->
+    <dependencies>
+
+        <!-- ====== 已完成模块 ====== -->
+
+        <!--
+            common: 公共基础模块
+            提供: BlackboardClient, MessageBus, MessageBuilder,
+                  SimulationState, Point, CarStatus, QueueNames 等
+            传递性: controller 和 display 已依赖 common，
+                   但此处显式声明保证直接可用
+        -->
+        <dependency>
+            <groupId>com.substation</groupId>
+            <artifactId>common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!--
+            controller: 节拍调度模块
+            提供: ControllerMain（构造+start 启动 tick 循环）
+            构造函数: ControllerMain(redisHost, redisPort, mqHost, mqPort)
+        -->
+        <dependency>
+            <groupId>com.substation</groupId>
+            <artifactId>controller</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!--
+            display: 前端展示模块
+            提供: DisplayMain（构造+start 启动 WebSocket + HTTP 服务）
+            构造函数: DisplayMain(redisHost, redisPort, mqHost, mqPort,
+                                  httpPort, wsPort, webRoot)
+        -->
+        <dependency>
+            <groupId>com.substation</groupId>
+            <artifactId>display</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- ====== Person B/C 模块（已从开发分支合并） ====== -->
+
+        <!--
+            task-configurator: 任务配置模块
+            提供: TaskConfiguratorMain.main() 订阅 TaskConfigCmd 队列
+        -->
+        <dependency>
+            <groupId>com.substation</groupId>
+            <artifactId>task-configurator</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!--
+            navigator: 路径规划模块
+            提供: NavigatorMain.main() 订阅 NavigatorCmd 队列（BFS/A*）
+        -->
+        <dependency>
+            <groupId>com.substation</groupId>
+            <artifactId>navigator</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!--
+            target-planner: 目标分配模块
+            提供: TargetPlannerMain.main() 订阅 TargetPlannerCmd 队列
+        -->
+        <dependency>
+            <groupId>com.substation</groupId>
+            <artifactId>target-planner</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!--
+            car: 巡检小车模块
+            提供: CarMain.main(new String[]{carId}) 订阅 Car_{carId} 队列
+            每台车独立线程启动，carId 由 Launcher 生成（Car001~Car00N）
+        -->
+        <dependency>
+            <groupId>com.substation</groupId>
+            <artifactId>car</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+    </dependencies>
+
+    <!-- ============================================================
+         构建配置
+         ============================================================
+
+        目标: 生成可直接 java -jar 执行的独立 JAR。
+
+        方案: maven-shade-plugin 将 launcher + 所有依赖的 .class 文件
+              合并为一个"胖 JAR"（uber-jar），避免手动管理 classpath。
+
+        主类: com.substation.launcher.LauncherMain
+              配置在 MANIFEST.MF 的 Main-Class 属性中，
+              java -jar 时 JVM 从此类开始执行。
+
+        注意: 当前只合并 controller + display + common 模块的 class。
+              等全部 7 个模块完成后，shade 会自动包含所有依赖。
+    -->
+    <build>
+        <plugins>
+            <!--
+                maven-shade-plugin: 创建包含所有依赖的可执行 JAR
+
+                为什么不用 maven-assembly-plugin?
+                  - shade 会自动处理同名文件冲突（META-INF/services 等）
+                  - shade 的 minimizeJar 可以剔除未使用的 class（减小体积）
+                  - shade 是创建 uber-jar 的现代标准方案
+
+                输出文件: target/launcher-1.0-SNAPSHOT.jar
+                启动命令: java -jar target/launcher-1.0-SNAPSHOT.jar [选项]
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <!--
+                            phase: package — 在执行 mvn package 时触发
+                            不绑定到 compile（编译期），因为只在打包时需要合并
+                        -->
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <!--
+                                Main-Class 写入 JAR 的 MANIFEST.MF，
+                                让 java -jar 知道入口点。
+
+                                注意: 不使用各子模块的 main()（如
+                                ControllerMain.main、DisplayMain.main），
+                                而是用 LauncherMain 统一启动全部模块。
+                            -->
+                            <transformers>
+                                <transformer
+                                    implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>com.substation.launcher.LauncherMain</mainClass>
+                                </transformer>
+                            </transformers>
+
+                            <!--
+                                createDependencyReducedPom: 生成一个精简版 POM
+                                （dependency-reduced-pom.xml），其中已合并的
+                                dependency 被移除。CI/CD 发布时使用此精简 POM
+                                而非原始 POM，避免下游重复引入已被 shade 合并的依赖。
+                            -->
+                            <createDependencyReducedPom>true</createDependencyReducedPom>
+
+                            <!--
+                                输出文件命名: ${artifactId}-${version}.jar
+                                不加 "shaded" 后缀 —— 此 JAR 就是唯一的制品，
+                                不需要区分 shade 前和 shade 后。
+                            -->
+                            <shadedArtifactAttached>false</shadedArtifactAttached>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

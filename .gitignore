@@ -1,0 +1,19 @@
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Build
+target/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+~$*.doc*
+*.tmp
+
+# Runtime logs
+logs/
+dependency-reduced-pom.xml

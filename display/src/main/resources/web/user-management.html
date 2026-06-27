@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>用户管理 — 变电站巡检仿真系统</title>
+<link rel="stylesheet" href="css/style.css?v=4">
+<style>
+  body.um-page { overflow-y:auto; height:auto; min-height:100vh; }
+  .um-wrap { width:100%; overflow-y:auto; }
+  /* 覆盖 style.css 中仿真页 .btn { flex:1 }，避免管理页按钮被拉满整行 */
+  .um-page .btn {
+    flex:none;
+    display:inline-flex;
+    width:auto;
+    height:auto;
+    min-height:32px;
+    padding:6px 14px;
+    border-radius:8px;
+    border:1px solid #E2E8F0;
+    cursor:pointer;
+    font-size:13px;
+    font-weight:500;
+    font-family:inherit;
+    background:#F8FAFC;
+    color:#64748B;
+    white-space:nowrap;
+  }
+  .um-page .btn:hover { background:#F1F5F9; }
+  .um-page .btn-primary { background:#3B82F6; color:#fff; border-color:#3B82F6; }
+  .um-page .btn-primary:hover { background:#2563EB; }
+  .um-page .btn-danger { background:#EF4444; color:#fff; border-color:#EF4444; }
+  .um-page .btn-danger:hover { background:#DC2626; }
+  .um-page .btn-success { background:#10B981; color:#fff; border-color:#10B981; }
+  .um-page .btn-success:hover { background:#059669; }
+  .um-page td .btn { margin-right:6px; }
+  .um-page td .btn:last-child { margin-right:0; }
+  .main { max-width:1200px; margin:24px auto; padding:0 24px; }
+  .tabs { display:flex; gap:0; margin-bottom:24px; background:#fff; border-radius:12px; border:1px solid #E2E8F0; overflow:hidden; }
+  .um-page .tab { padding:14px 28px; cursor:pointer; font-size:14px; font-weight:600; color:#64748B; border:none; background:none; font-family:inherit; flex:none; width:auto; height:auto; display:inline-block; }
+  .um-page .tab.active { color:#3B82F6; background:#EFF6FF; }
+  .tab:not(:last-child) { border-right:1px solid #E2E8F0; }
+  .toolbar { display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+  .toolbar input, .toolbar select { padding:8px 12px; border:1px solid #CBD5E1; border-radius:8px; font-size:13px; background:#fff; color:#1E293B; outline:none; }
+  .toolbar input:focus, .toolbar select:focus { border-color:#3B82F6; }
+  .card { background:#fff; border:1px solid #E2E8F0; border-radius:12px; overflow:hidden; }
+  table { width:100%; border-collapse:collapse; }
+  th { text-align:left; padding:12px 16px; font-size:12px; color:#64748B; background:#F8FAFC; border-bottom:1px solid #E2E8F0; }
+  td { padding:14px 16px; font-size:13px; border-bottom:1px solid #F1F5F9; }
+  tr:hover { background:#F8FAFC; }
+  .badge { padding:2px 10px; border-radius:12px; font-size:11px; font-weight:600; }
+  .badge-pending { background:#FEF3C7; color:#92400E; }
+  .badge-active { background:#D1FAE5; color:#065F46; }
+  .badge-rejected { background:#FEE2E2; color:#991B1B; }
+  .badge-disabled { background:#F1F5F9; color:#64748B; }
+  .empty { text-align:center; padding:60px 20px; color:#94A3B8; }
+  .empty h3 { font-size:18px; color:#64748B; margin-bottom:8px; }
+  .um-page .pagination { display:flex; justify-content:center; gap:4px; padding:16px; flex-wrap:wrap; }
+  .um-page .pagination button {
+    flex:none;
+    width:auto;
+    padding:6px 12px;
+    border:1px solid #E2E8F0;
+    border-radius:6px;
+    background:#fff;
+    cursor:pointer;
+    font-size:13px;
+  }
+  .um-page .pagination button.active { background:#3B82F6; color:#fff; border-color:#3B82F6; }
+  .toast { position:fixed; top:16px; right:16px; padding:12px 24px; border-radius:8px; color:#fff; font-size:13px; z-index:999; display:none; }
+  .toast.success { background:#10B981; }
+  .toast.error { background:#EF4444; }
+</style>
+</head>
+<body class="um-page">
+<header class="header">
+  <h1>&#x26A1; 用户管理</h1>
+  <div class="global-info">
+    <span id="info-user">加载中...</span>
+    <a href="dashboard.html" class="nav-link">← 返回</a>
+  </div>
+</header>
+<div class="main-container">
+<div class="um-wrap">
+<div class="main">
+  <div class="tabs">
+    <button class="tab active" id="tab-users" onclick="showTab('users')">用户列表</button>
+    <button class="tab" id="tab-registrations" onclick="showTab('registrations')">注册审核 <span id="pending-count" style="background:#EF4444;color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;margin-left:4px;display:none"></span></button>
+  </div>
+
+  <div id="panel-users">
+    <div class="toolbar">
+      <input type="text" id="search-users" placeholder="搜索用户名或显示名称" onkeydown="if(event.key==='Enter')loadUsers()">
+      <select id="filter-role">
+        <option value="">全部角色</option>
+        <option value="simulator">仿真员</option>
+        <option value="analyst">统计分析员</option>
+      </select>
+      <button class="btn btn-primary" onclick="loadUsers()">搜索</button>
+    </div>
+    <div class="card" id="users-table-wrap"><div class="empty"><h3>加载中...</h3></div></div>
+    <div class="pagination" id="users-pagination"></div>
+  </div>
+
+  <div id="panel-registrations" style="display:none">
+    <div class="toolbar">
+      <select id="filter-reg-status" onchange="loadRegistrations()">
+        <option value="pending">待审核</option>
+        <option value="approved">已通过</option>
+        <option value="rejected">已拒绝</option>
+      </select>
+    </div>
+    <div class="card" id="reg-table-wrap"><div class="empty"><h3>加载中...</h3></div></div>
+    <div class="pagination" id="reg-pagination"></div>
+  </div>
+</div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div id="reset-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:100;display:none;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;padding:24px;width:360px">
+    <h3 style="margin-bottom:16px">重置密码</h3>
+    <p style="color:#64748B;font-size:14px;margin-bottom:16px">确认将 <strong id="reset-target-name">-</strong> 的密码重置为 <code>123456</code>？</p>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" style="flex:1" id="btn-confirm-reset">确认重置</button>
+      <button class="btn" style="flex:1" onclick="closeModal()">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- 操作日志弹窗 -->
+<div id="log-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:100;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;padding:24px;width:700px;max-height:80vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="margin:0">&#x1F4CB; 操作日志 — <span id="log-target-name"></span></h3>
+      <button class="btn" onclick="document.getElementById('log-modal').style.display='none'">关闭</button>
+    </div>
+    <div id="log-table-wrap"><div class="empty"><h3>加载中...</h3></div></div>
+  </div>
+</div>
+
+<script src="js/auth.js?v=11"></script>
+<script>
+// ===== 认证适配：Auth API =====
+function authHeaders() {
+  var token = Auth.getToken();
+  return token ? { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' } : {};
+}
+
+// ===== 全局状态 =====
+var currentTab = 'users';
+var resetTarget = null;
+
+function showToast(msg, type) {
+  var el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'toast ' + type; el.style.display = 'block';
+  setTimeout(function() { el.style.display = 'none'; }, 2500);
+}
+
+function showResetModal(username) {
+  resetTarget = username;
+  document.getElementById('reset-target-name').textContent = username;
+  document.getElementById('reset-modal').style.display = 'flex';
+}
+function closeModal() {
+  resetTarget = null;
+  document.getElementById('reset-modal').style.display = 'none';
+}
+
+// ===== 操作日志弹窗 =====
+function showLogModal(username) {
+  document.getElementById('log-target-name').textContent = username;
+  document.getElementById('log-modal').style.display = 'flex';
+  document.getElementById('log-table-wrap').innerHTML = '<div class="empty"><h3>加载中...</h3></div>';
+  fetch('/api/admin/logs?username=' + encodeURIComponent(username) + '&size=100', { headers: authHeaders() })
+    .then(function(r) {
+      if (r.status === 401) { Auth.logout(); return []; }
+      return r.json();
+    })
+    .then(function(d) {
+      if (!d || !d.success) { document.getElementById('log-table-wrap').innerHTML = '<div class="empty"><p>暂无操作记录</p></div>'; return; }
+      var logs = d.data;
+      if (!logs || logs.length === 0) {
+        document.getElementById('log-table-wrap').innerHTML = '<div class="empty"><p>暂无操作记录</p></div>';
+        return;
+      }
+      var html = '<table><thead><tr><th>操作类型</th><th>操作对象</th><th>详情</th><th>时间</th></tr></thead><tbody>';
+      for (var i = 0; i < logs.length; i++) {
+        var l = logs[i];
+        var actionNames = { LOGIN: '登录', LOGOUT: '登出', REGISTER: '注册', REGISTER_DUPLICATE: '重复注册', APPROVE_REGISTRATION: '通过注册', REJECT_REGISTRATION: '拒绝注册', RESET_PASSWORD: '重置密码', CHANGE_PASSWORD: '修改密码' };
+        html += '<tr><td>' + (actionNames[l.action] || l.action) + '</td><td>' + esc(l.target || '-') + '</td><td>' + esc(l.details || '-') + '</td><td>' + (l.createdAt ? l.createdAt.substring(0,19) : '-') + '</td></tr>';
+      }
+      html += '</tbody></table>';
+      document.getElementById('log-table-wrap').innerHTML = html;
+    })
+    .catch(function() { document.getElementById('log-table-wrap').innerHTML = '<div class="empty"><p>加载失败</p></div>'; });
+}
+
+function showTab(tab) {
+  currentTab = tab;
+  document.getElementById('tab-users').classList.toggle('active', tab === 'users');
+  document.getElementById('tab-registrations').classList.toggle('active', tab === 'registrations');
+  document.getElementById('panel-users').style.display = tab === 'users' ? 'block' : 'none';
+  document.getElementById('panel-registrations').style.display = tab === 'registrations' ? 'block' : 'none';
+  if (tab === 'users') loadUsers(); else loadRegistrations();
+}
+
+// ===== 用户列表 =====
+function loadUsers(page) {
+  page = page || 1;
+  var search = document.getElementById('search-users').value.trim();
+  var role = document.getElementById('filter-role').value;
+  var url = '/api/admin/users?page=' + page + '&size=20';
+  if (search) url += '&search=' + encodeURIComponent(search);
+  if (role) url += '&role=' + role;
+
+  fetch(url, { headers: authHeaders() })
+    .then(function(r) {
+      if (r.status === 401) { Auth.logout(); return; }
+      return r.json();
+    })
+    .then(function(d) {
+      if (!d) return;
+      if (!d.success) { showToast(d.error, 'error'); return; }
+      renderUsersTable(d.data);
+      renderPagination('users-pagination', d.page, Math.ceil(d.total / d.size), loadUsers);
+    })
+    .catch(function(e) { console.error(e); showToast('加载失败', 'error'); });
+}
+
+function renderUsersTable(users) {
+  if (!users || users.length === 0) {
+    document.getElementById('users-table-wrap').innerHTML = '<div class="empty"><h3>暂无用户数据</h3><p>请先通过注册+审核添加用户</p></div>';
+    return;
+  }
+  var roleNames = { admin: '管理员', simulator: '仿真员', analyst: '统计分析员' };
+  var html = '<table><thead><tr><th>用户名</th><th>角色</th><th>显示名称</th><th>状态</th><th>注册时间</th><th>操作</th></tr></thead><tbody>';
+  for (var i = 0; i < users.length; i++) {
+    var u = users[i];
+    var statusCls = u.status === 'active' ? 'active' : 'disabled';
+    var statusName = u.status === 'active' ? '正常' : '已禁用';
+    html += '<tr><td><a href="javascript:void(0)" onclick="showLogModal(\'' + esc(u.username) + '\')" style="color:#3B82F6;text-decoration:none;cursor:pointer;font-weight:600">' + esc(u.username) + '</a></td><td>' + (roleNames[u.role] || u.role) + '</td><td>' + esc(u.displayName || '-') + '</td><td><span class="badge badge-' + statusCls + '">' + statusName + '</span></td><td>' + (u.createdAt ? u.createdAt.substring(0,16) : '-') + '</td><td><button class="btn" onclick="showLogModal(\'' + esc(u.username) + '\')">日志</button> <button class="btn" onclick="showResetModal(\'' + esc(u.username) + '\')">重置密码</button></td></tr>';
+  }
+  html += '</tbody></table>';
+  document.getElementById('users-table-wrap').innerHTML = html;
+}
+
+// ===== 注册审核 =====
+function loadRegistrations(page) {
+  page = page || 1;
+  var status = document.getElementById('filter-reg-status').value;
+  var url = '/api/admin/registrations?page=' + page + '&size=20&status=' + status;
+
+  fetch(url, { headers: authHeaders() })
+    .then(function(r) {
+      if (r.status === 401) { Auth.logout(); return; }
+      return r.json();
+    })
+    .then(function(d) {
+      if (!d) return;
+      if (!d.success) { showToast(d.error, 'error'); return; }
+      renderRegTable(d.data, status);
+      renderPagination('reg-pagination', d.page, Math.ceil(d.total / d.size), loadRegistrations);
+      if (status === 'pending') {
+        var cnt = d.total || 0;
+        document.getElementById('pending-count').textContent = cnt;
+        document.getElementById('pending-count').style.display = cnt > 0 ? 'inline' : 'none';
+      }
+    })
+    .catch(function() { showToast('加载失败', 'error'); });
+}
+
+function renderRegTable(list, status) {
+  if (!list || list.length === 0) {
+    document.getElementById('reg-table-wrap').innerHTML = '<div class="empty"><h3>暂无记录</h3></div>';
+    return;
+  }
+  var roleNames = { simulator: '仿真员', analyst: '统计分析员' };
+  var html = '<table><thead><tr><th>用户名</th><th>角色</th><th>显示名称</th><th>状态</th><th>审核人</th><th>申请时间</th><th>操作</th></tr></thead><tbody>';
+  for (var i = 0; i < list.length; i++) {
+    var r = list[i];
+    var statusCls = r.status === 'pending' ? 'pending' : (r.status === 'approved' ? 'active' : 'rejected');
+    var statusName = { pending: '待审核', approved: '已通过', rejected: '已拒绝' }[r.status] || r.status;
+    html += '<tr><td>' + esc(r.username) + '</td><td>' + (roleNames[r.role] || r.role) + '</td><td>' + esc(r.displayName || '-') + '</td><td><span class="badge badge-' + statusCls + '">' + statusName + '</span></td><td>' + esc(r.reviewedBy || '-') + '</td><td>' + (r.createdAt ? r.createdAt.substring(0,16) : '-') + '</td>';
+    if (r.status === 'pending') {
+      html += '<td><button class="btn btn-success" onclick="approve(' + r.id + ')">通过</button> <button class="btn btn-danger" onclick="reject(' + r.id + ')">拒绝</button></td>';
+    } else {
+      html += '<td>' + (r.reviewTime ? r.reviewTime.substring(0,16) : '-') + '</td>';
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  document.getElementById('reg-table-wrap').innerHTML = html;
+}
+
+function approve(id) {
+  if (!confirm('确认通过该注册申请吗？')) return;
+  fetch('/api/admin/registrations/' + id + '/approve', { method:'POST', headers: authHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(d) { showToast(d.message || d.success ? '操作成功' : (d.error||'失败'), d.success ? 'success' : 'error'); loadRegistrations(); });
+}
+
+function reject(id) {
+  if (!confirm('确认拒绝该注册申请吗？')) return;
+  fetch('/api/admin/registrations/' + id + '/reject', { method:'POST', headers: authHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(d) { showToast(d.message || d.success ? '操作成功' : (d.error||'失败'), d.success ? 'success' : 'error'); loadRegistrations(); });
+}
+
+// ===== 重置密码 =====
+document.getElementById('btn-confirm-reset').addEventListener('click', function() {
+  if (!resetTarget) return;
+  fetch('/api/admin/users/' + encodeURIComponent(resetTarget) + '/reset-password', { method:'POST', headers: authHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(d) { showToast(d.message || (d.success ? '操作成功' : (d.error||'失败')), d.success ? 'success' : 'error'); closeModal(); loadUsers(); })
+    .catch(function() { showToast('网络错误', 'error'); closeModal(); });
+});
+
+// ===== 分页 =====
+function renderPagination(id, page, totalPages, fn) {
+  var el = document.getElementById(id);
+  if (totalPages <= 1) { el.innerHTML = ''; return; }
+  var html = '<button ' + (page > 1 ? '' : 'disabled') + '>' + (page > 1 ? '' : '‹') + '</button>';
+  for (var i = 1; i <= totalPages; i++) {
+    html += '<button class="' + (i === page ? 'active' : '') + '" ' + (i !== page ? 'onclick="' + fn.name + '(' + i + ')"' : '') + '>' + i + '</button>';
+  }
+  html += '<button ' + (page < totalPages ? '' : 'disabled') + '>' + (page < totalPages ? '' : '›') + '</button>';
+  el.innerHTML = html;
+}
+
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ===== 初始化 =====
+async function init() {
+  var user = await Auth.checkAuth();
+  if (!user) return;
+  if (user.role !== 'admin') {
+    showToast('仅管理员可访问此页面', 'error');
+    setTimeout(function() { window.location.href = 'dashboard.html'; }, 2000);
+    return;
+  }
+  Auth.renderNavBar(user);
+  loadUsers();
+  fetch('/api/admin/registrations?status=pending&size=1', { headers: authHeaders() })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.total > 0) {
+        var el = document.getElementById('pending-count');
+        el.textContent = d.total;
+        el.style.display = 'inline';
+      }
+    })
+    .catch(function() {});
+}
+
+function renderPagination(id, page, totalPages, fn) {
+  var el = document.getElementById(id);
+  if (totalPages <= 1) { el.innerHTML = ''; return; }
+  var html = '<button ' + (page > 1 ? 'onclick="' + fn.name + '(' + (page - 1) + ')"' : 'disabled') + '>‹</button>';
+  for (var i = 1; i <= Math.min(totalPages, 20); i++) {
+    html += '<button class="' + (i === page ? 'active' : '') + '" onclick="' + fn.name + '(' + i + ')">' + i + '</button>';
+  }
+  html += '<button ' + (page < totalPages ? 'onclick="' + fn.name + '(' + (page + 1) + ')"' : 'disabled') + '>›</button>';
+  el.innerHTML = html;
+}
+
+init();
+</script>
+<script src="js/particles.js"></script>
+</body>
+</html>

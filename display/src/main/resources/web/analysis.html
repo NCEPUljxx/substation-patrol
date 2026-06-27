@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>统计分析 — 变电站巡检仿真系统</title>
+<link rel="stylesheet" href="css/style.css?v=4">
+<style>
+.a-wrap{flex:1;overflow-y:auto;padding:20px}
+.list-toolbar{background:#FFF;border:1px solid #E2E8F0;border-radius:12px;padding:14px 16px;margin-bottom:16px}
+.summary-row{font-size:13px;color:#475569;margin-bottom:10px;line-height:1.8}
+.summary-row strong{color:#1E293B}
+.summary-best{color:#10B981}.summary-worst{color:#EF4444}
+.filter-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.filter-row label{font-size:12px;color:#64748B}
+.filter-row select{height:32px;border:1px solid #CBD5E1;border-radius:6px;padding:0 8px;font-size:12px}
+.btn-compare{height:32px;padding:0 14px;background:#3B82F6;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600}
+.btn-compare:disabled{background:#CBD5E1;cursor:not-allowed}
+.btn-select-mode{height:32px;padding:0 14px;background:#F8FAFC;color:#475569;border:1px solid #CBD5E1;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600}
+.btn-select-mode.active{background:#EFF6FF;color:#3B82F6;border-color:#3B82F6}
+.btn-io{height:32px;padding:0 14px;background:#FFF;color:#475569;border:1px solid #CBD5E1;border-radius:6px;font-size:12px;cursor:pointer;font-weight:600}
+.btn-io:hover{background:#F8FAFC;border-color:#94A3B8}
+.io-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid #F1F5F9}
+.a-grid{display:flex;flex-wrap:wrap;gap:16px;justify-content:center}
+.a-card{cursor:pointer;background:#FFF;border:1px solid #E2E8F0;border-radius:12px;padding:20px;width:320px;transition:all 0.15s;position:relative}
+.a-card:hover{border-color:#3B82F6;box-shadow:0 4px 16px rgba(59,130,246,0.1);transform:translateY(-2px)}
+.a-card.selected{border-color:#3B82F6;background:#F8FAFF}
+.a-card h4{font-size:15px;color:#1E293B;margin-bottom:6px;padding-right:24px}
+.a-card.select-mode h4{padding-left:22px}
+.a-card p{font-size:11px;color:#94A3B8;line-height:1.6}
+.a-check{position:absolute;top:10px;left:10px;width:16px;height:16px;cursor:pointer;accent-color:#3B82F6}
+.a-del{position:absolute;top:8px;right:10px;background:none;border:none;color:#CBD5E1;cursor:pointer;font-size:16px}
+.a-del:hover{color:#EF4444}
+.a-rate{font-size:36px;font-weight:700;text-align:center;margin:8px 0 2px}
+.a-rate-label{font-size:11px;color:#94A3B8;text-align:center;margin-bottom:4px}
+.a-coverage{font-size:10px;color:#CBD5E1;text-align:center;margin-bottom:8px}
+.empty{text-align:center;padding:80px;color:#94A3B8}
+.empty .icon{font-size:56px;margin-bottom:16px}
+
+.fsd{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#F1F5F9;z-index:9998;overflow-y:auto}
+.fsd.active{display:block}
+.fsd-header{display:flex;justify-content:space-between;align-items:center;padding:12px 20px;background:#FFF;border-bottom:1px solid #E2E8F0;position:sticky;top:0;z-index:1}
+.fsd-close{background:none;border:none;font-size:24px;cursor:pointer;color:#94A3B8;width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center}
+.fsd-close:hover{background:#F1F5F9;color:#1E293B}
+.fsd-body{width:100%;padding:12px;box-sizing:border-box}
+.krow{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.kcard{flex:1;min-width:100px;background:#FFF;border-radius:10px;padding:16px;text-align:center;border:1px solid #E2E8F0}
+.kcard h5{font-size:11px;color:#94A3B8;margin-bottom:6px}
+.kcard .v{font-size:24px;font-weight:700}
+.cbox{background:#FFF;border:1px solid #E2E8F0;border-radius:10px;padding:10px;min-height:200px}
+.info-row{display:flex;gap:20px;flex-wrap:wrap;padding:8px 4px 4px;font-size:12px;color:#64748B}
+.info-row span{white-space:nowrap}
+.balance-box{background:#FFF;border:1px solid #E2E8F0;border-radius:10px;padding:14px 16px;margin-bottom:10px}
+.balance-box h5{font-size:12px;color:#64748B;margin:0 0 10px}
+.balance-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:11px}
+.balance-row .lbl{width:52px;color:#475569;flex-shrink:0}
+.balance-row .track{flex:1;height:14px;background:#F1F5F9;border-radius:4px;overflow:hidden}
+.balance-row .fill{height:100%;background:#10B981;border-radius:4px}
+.balance-row .val{width:36px;text-align:right;color:#64748B;flex-shrink:0}
+.balance-hint{font-size:11px;color:#94A3B8;margin:4px 0 0}
+
+.compare-modal{display:none;position:fixed;inset:0;background:rgba(15,23,42,0.45);z-index:10000;align-items:center;justify-content:center;padding:20px}
+.compare-modal.active{display:flex}
+.compare-panel{background:#FFF;border-radius:12px;max-width:720px;width:100%;max-height:85vh;overflow:auto;padding:20px}
+.compare-panel h3{margin:0 0 12px;font-size:16px}
+.compare-table{width:100%;border-collapse:collapse;font-size:13px}
+.compare-table th,.compare-table td{border:1px solid #E2E8F0;padding:8px 10px;text-align:center}
+.compare-table th{background:#F8FAFC;color:#64748B;font-weight:600}
+.compare-close{margin-top:14px;width:100%;height:40px;border:1px solid #CBD5E1;background:#F8FAFC;border-radius:8px;cursor:pointer}
+</style>
+</head>
+<body>
+<header class="header"><h1>&#x26A1; 统计分析</h1>
+<div class="global-info"><span id="info-user">加载中...</span><a href="dashboard.html" class="nav-link">← 返回</a></div></header>
+<div class="main-container">
+<div class="a-wrap">
+  <div id="list-toolbar" class="list-toolbar" hidden></div>
+  <input type="file" id="import-file" accept=".json,application/json" hidden>
+  <div id="list-wrap"><div class="empty"><div class="icon">📋</div><p>暂无仿真记录</p></div></div>
+</div>
+</div>
+<div class="fsd" id="fsd"><div class="fsd-header"><h3 id="fsd-title">仿真记录详情</h3><button class="fsd-close" id="fsd-close">✕</button></div><div class="fsd-body" id="fsd-body"></div></div>
+<div class="compare-modal" id="compare-modal"><div class="compare-panel" id="compare-panel"></div></div>
+<script src="js/auth.js?v=11"></script>
+<script src="js/particles.js"></script>
+<script src="js/analysis.js"></script>
+</body>
+</html>

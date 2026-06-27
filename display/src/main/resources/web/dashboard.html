@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>变电站巡检仿真系统</title>
+<link rel="stylesheet" href="css/style.css?v=4">
+<style>
+  .dashboard-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background: #F1F5F9;
+  }
+  .dashboard-card { position:relative; z-index:1;
+    text-align: center;
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 16px;
+    padding: 48px 56px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+    max-width: 480px;
+    width: 90%;
+  }
+  .dash-icon { font-size: 56px; margin-bottom: 16px; }
+  .dash-title { font-size: 22px; color: #1E293B; margin-bottom: 6px; font-weight: 700; }
+  .dash-role {
+    font-size: 14px; color: #3B82F6; margin-bottom: 32px;
+    padding: 4px 16px; background: #EFF6FF; border-radius: 20px; display: inline-block;
+  }
+  .dash-btns { display: flex; flex-direction: column; gap: 12px; }
+  .dash-btn {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; height: 52px; border-radius: 10px; font-size: 15px;
+    font-family: inherit; font-weight: 600; cursor: pointer; border: none;
+    transition: all 0.2s; text-decoration: none;
+  }
+  .dash-btn.sim { background: #3B82F6; color: #fff; }
+  .dash-btn.sim:hover { background: #2563EB; transform: translateY(-1px); box-shadow: 0 4px 16px #3B82F640; }
+  .dash-btn.analysis { background: #10B981; color: #fff; }
+  .dash-btn.analysis:hover { background: #059669; transform: translateY(-1px); box-shadow: 0 4px 16px #10B98140; }
+  .dash-btn.manage { background: #8B5CF6; color: #fff; }
+  .dash-btn.manage:hover { background: #7C3AED; transform: translateY(-1px); box-shadow: 0 4px 16px #8B5CF640; }
+  .dash-cpw, .dash-logout {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px;
+    height: 48px; border-radius: 10px; font-size: 14px;
+    font-family: inherit; font-weight: 600; cursor: pointer; border: 1px solid #E2E8F0;
+    transition: all 0.2s; background: #F8FAFC; color: #64748B;
+  }
+  .dash-cpw:hover { color: #3B82F6; border-color: #3B82F6; background: #EFF6FF; }
+  .dash-logout:hover { color: #EF4444; border-color: #EF4444; background: #FEF2F2; }
+</style>
+</head>
+<body class="dashboard-page">
+
+<div class="dashboard-card">
+  <div class="dash-icon">⚡</div>
+  <div class="dash-title">变电站巡检仿真系统</div>
+  <div class="dash-role" id="dash-role">加载中...</div>
+  <div class="dash-btns" id="dash-btns"></div>
+  <div style="display:flex;gap:12px;margin-top:12px">
+    <button class="dash-cpw" id="dash-cpw">🔒 修改密码</button>
+    <button class="dash-logout" id="dash-logout">🚪 退出登录</button>
+  </div>
+</div>
+
+<!-- 修改密码弹窗 -->
+<div id="cpw-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:1000;justify-content:center;align-items:center;">
+  <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;padding:24px;width:340px;">
+    <h3 style="margin-bottom:16px;color:#1E293B">修改密码</h3>
+    <input type="password" id="cpw-old" placeholder="旧密码" style="width:100%;height:36px;margin-bottom:10px;padding:0 10px;background:#F8FAFC;border:1px solid #CBD5E1;border-radius:6px;color:#1E293B;font-size:13px">
+    <input type="password" id="cpw-new" placeholder="新密码(至少6位)" style="width:100%;height:36px;margin-bottom:10px;padding:0 10px;background:#F8FAFC;border:1px solid #CBD5E1;border-radius:6px;color:#1E293B;font-size:13px">
+    <input type="password" id="cpw-confirm" placeholder="确认新密码" style="width:100%;height:36px;margin-bottom:10px;padding:0 10px;background:#F8FAFC;border:1px solid #CBD5E1;border-radius:6px;color:#1E293B;font-size:13px">
+    <p id="cpw-err" style="color:#EF4444;font-size:12px;min-height:18px"></p>
+    <div style="display:flex;gap:8px">
+      <button id="cpw-submit" class="dash-btn sim" style="flex:1;height:40px;font-size:13px">确认修改</button>
+      <button id="cpw-cancel" class="dash-btn" style="flex:1;height:40px;font-size:13px;background:#F1F5F9;color:#64748B">取消</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/auth.js?v=11"></script>
+<script>
+(function () {
+  'use strict';
+
+  Auth.checkAuth().then(function (user) {
+    if (!user) {
+      return;
+    }
+    var roleNames = { admin: '管理员', simulator: '仿真员', analyst: '统计分析员' };
+    document.getElementById('dash-role').textContent =
+      user.displayName || roleNames[user.role] || user.role;
+
+    var btns = '';
+    if (user.role === 'admin') {
+      btns += '<a href="index.html" class="dash-btn sim">🎮 仿真控制</a>';
+      btns += '<a href="analysis.html" class="dash-btn analysis">📊 统计分析</a>';
+      btns += '<a href="user-management.html" class="dash-btn manage">👥 用户管理</a>';
+    } else if (user.role === 'simulator') {
+      btns += '<a href="index.html" class="dash-btn sim">🎮 仿真控制</a>';
+    } else if (user.role === 'analyst') {
+      btns += '<a href="analysis.html" class="dash-btn analysis">📊 统计分析</a>';
+    }
+    document.getElementById('dash-btns').innerHTML = btns;
+  });
+
+  // 修改密码弹窗
+  var cpwModal = document.getElementById('cpw-modal');
+  document.getElementById('dash-cpw').addEventListener('click', function(){ cpwModal.style.display='flex'; });
+  document.getElementById('cpw-cancel').addEventListener('click', function(){ cpwModal.style.display='none'; });
+  document.getElementById('cpw-submit').addEventListener('click', function(){
+    var oldPw = document.getElementById('cpw-old').value;
+    var newPw = document.getElementById('cpw-new').value;
+    var cfmPw = document.getElementById('cpw-confirm').value;
+    var errEl = document.getElementById('cpw-err');
+    if (!oldPw || !newPw || !cfmPw) { errEl.textContent = '请填写所有字段'; return; }
+    if (newPw.length < 6) { errEl.textContent = '新密码至少6位'; return; }
+    if (newPw !== cfmPw) { errEl.textContent = '两次新密码不一致'; return; }
+    fetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + (Auth.getToken() || '')
+      },
+      body: JSON.stringify({ oldPassword: oldPw, newPassword: newPw })
+    }).then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d && d.success) { alert('密码修改成功'); cpwModal.style.display='none'; }
+      else { errEl.textContent = (d && d.error) || '修改失败'; }
+    }).catch(function(){ errEl.textContent = '网络错误'; });
+  });
+
+  document.getElementById('dash-logout').addEventListener('click', function () {
+    Auth.logout();
+  });
+})();
+</script>
+<script src="js/particles.js"></script>
+</body>
+</html>

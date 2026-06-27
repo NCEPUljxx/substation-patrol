@@ -1,0 +1,16 @@
+{
+  "redisHost": "<Person A的局域网IP>",
+  "redisPort": 6379,
+  "mqHost": "<Person A的局域网IP>",
+  "mqPort": 5672,
+  "role": "planner",
+  "displayHost": "<Person D的局域网IP>",
+  "displayHttpPort": 8887,
+  "displayWsPort": 8888,
+  "dbHost": "localhost",
+  "dbPort": 1433,
+  "dbName": "substation-patrol",
+  "dbUser": "sa",
+  "dbPassword": "Root@1234",
+  "cars": ["Car001", "Car002", "Car003"]
+}

@@ -1,0 +1,216 @@
+/*
+ * 变电站巡检仿真系统 — Light Modern UI
+ */
+
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', 'Helvetica Neue', Arial, sans-serif;
+  background: #F1F5F9;
+  color: #334155;
+  height: 100vh;
+  overflow: hidden;
+  line-height: 1.6;
+}
+
+/* ════════════ Header ════════════ */
+.header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0 24px; height: 52px;
+  background: #FFFFFF; border-bottom: 1px solid #E2E8F0; flex-shrink: 0;
+}
+.header h1 {
+  font-size: 15px; font-weight: 700; color: #1E293B; letter-spacing: 0.3px;
+}
+.global-info {
+  display: flex; gap: 16px; font-size: 13px; color: #64748B; align-items: center;
+}
+.info-divider { width:1px; height:20px; background:#E2E8F0; }
+.mode-tag {
+  padding:2px 10px; border-radius:12px; font-size:13px; font-weight:600;
+  background:#FEF2F2; color:#DC2626; border:1px solid #FECACA;
+}
+
+/* ════════════ Three-Column ════════════ */
+.main-container { display:flex; flex:1; overflow:hidden; }
+
+/* ════════════ Left Sidebar ════════════ */
+.sidebar {
+  width:240px; min-width:240px; height:calc(100vh - 52px); background:rgba(255,255,255,0.92); border-right:1px solid #E2E8F0;
+  padding:14px 10px; display:flex; flex-direction:column; gap:6px; overflow-y:scroll;
+}
+.panel {
+  background:rgba(248,250,252,0.9); border:1px solid #E2E8F0; border-radius:10px; padding:22px;
+}
+.panel h3 {
+  color:#1E293B; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:10px;
+}
+
+/* ════════════ Form ════════════ */
+.form-row { margin-bottom:10px; }
+.form-row label { display:flex; align-items:center; justify-content:space-between; font-size:13px; color:#64748B; margin-bottom:4px; }
+.form-row label em { font-style:normal; font-weight:600; color:#3B82F6; }
+.form-row input[type="number"], .form-row select {
+  width:100%; height:36px; padding:0 10px; background:rgba(255,255,255,0.92); border:1px solid #CBD5E1;
+  border-radius:6px; color:#334155; font-size:13px; font-family:inherit;
+}
+.form-row input[type="number"]:focus-visible, .form-row select:focus-visible {
+  outline:none; border-color:#3B82F6; box-shadow:0 0 0 3px #3B82F620;
+}
+.form-row input[type="range"] { width:100%; height:6px; accent-color:#3B82F6; cursor:pointer; }
+.input-pair { display:flex; align-items:center; gap:6px; }
+.input-pair input { flex:1; min-width:0; }
+.input-pair span { color:#94A3B8; font-size:13px; flex-shrink:0; }
+
+/* ════════════ Buttons ════════════ */
+.btn-group { display:flex; gap:6px; }
+.btn {
+  flex:1; height:36px; padding:0 8px; border:1px solid #CBD5E1; border-radius:8px;
+  cursor:pointer; font-size:13px; font-family:inherit; font-weight:600;
+  display:flex; align-items:center; justify-content:center; gap:5px;
+  transition:all 0.15s; white-space:nowrap; background:rgba(255,255,255,0.92); color:#334155;
+}
+.btn:hover:not(:disabled) { background:#F1F5F9; }
+.btn:active:not(:disabled) { transform:scale(0.97); }
+.btn:disabled { opacity:0.4; cursor:not-allowed; }
+.btn-primary { background:#3B82F6; border-color:#3B82F6; color:#fff; }
+.btn-primary:hover:not(:disabled) { background:#2563EB; }
+.btn-warning { background:#F59E0B; border-color:#F59E0B; color:#fff; }
+.btn-warning:hover:not(:disabled) { background:#D97706; }
+.btn-danger { background:#EF4444; border-color:#EF4444; color:#fff; }
+.btn-danger:hover:not(:disabled) { background:#DC2626; }
+
+/* ════════════ Replay ════════════ */
+.replay-bar {
+  margin-top:10px; padding:8px 0 2px; display:flex; flex-direction:column; gap:6px;
+  border-top:1px solid #E2E8F0;
+}
+.replay-bar span { font-size:13px; color:#64748B; }
+.replay-bar input[type="range"] { width:100%; }
+.replay-btns { display:flex; gap:4px; }
+.btn-small {
+  height:34px; padding:0 10px; background:#F1F5F9; border:1px solid #CBD5E1;
+  border-radius:6px; color:#64748B; font-size:13px; font-family:inherit; cursor:pointer;
+}
+.btn-small:hover { background:#E2E8F0; }
+
+/* ════════════ Map Area ════════════ */
+.map-area {
+  flex:1; display:flex; justify-content:center; align-items:flex-start;
+  overflow:auto; padding:10px; background:#F1F5F9;
+}
+.map-stack { position:relative; flex-shrink:0; }
+#map-canvas { display:block; background:#D0D0D0; image-rendering:pixelated; }
+#car-canvas { position:absolute; top:0; left:0; display:block; image-rendering:pixelated; pointer-events:none; }
+
+.unity-shell {
+  display: none; position: relative; flex-shrink: 0;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08); border-radius: 4px; overflow: hidden;
+  overscroll-behavior: none; touch-action: none;
+}
+.unity-shell.active { display: block; }
+.unity-frame {
+  display: block; width: 100%; height: 100%; border: none; background: #231F20;
+  pointer-events: none;
+}
+.unity-input-layer {
+  position: absolute; inset: 0; z-index: 2;
+  touch-action: none; cursor: grab; background: transparent;
+}
+.unity-input-layer:active { cursor: grabbing; }
+.map-area.map-area-unity { overflow: hidden; }
+
+/* ════════════ Right Cars Panel ════════════ */
+.cars-panel {
+  width:290px; min-width:290px; background:rgba(255,255,255,0.92); border-left:1px solid #E2E8F0;
+  padding:22px 12px; overflow-y:scroll; display:flex; flex-direction:column; gap:8px;
+}
+.car-card {
+  background:rgba(248,250,252,0.9); border:1px solid #E2E8F0; border-radius:8px; padding:12px;
+}
+.car-card.placeholder { text-align:center; color:#94A3B8; font-size:13px; }
+.car-card.placeholder .hint { font-size:13px; color:#CBD5E1; margin-top:4px; }
+.car-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+.car-number { font-size:13px; font-weight:700; color:#1E293B; }
+.car-status-tag { padding:2px 8px; border-radius:10px; font-size:12px; font-weight:600; color:#fff; }
+.car-detail { color:#64748B; line-height:1.8; font-size:13px; }
+.steps-bar-wrap { height:4px; background:#E2E8F0; border-radius:2px; margin-top:4px; }
+.steps-bar-fill { height:100%; background:#3B82F6; border-radius:2px; transition:width 0.3s; }
+
+/* ════════════ Leaderboard ════════════ */
+#leaderboard {
+  padding-left:18px; font-size:13px; line-height:2; color:#64748B;
+  list-style:decimal; max-height:none; overflow-y:scroll;
+}
+#leaderboard li:nth-child(1) { color:#D97706; font-weight:700; }
+#leaderboard li:nth-child(2) { color:#64748B; font-weight:600; }
+#leaderboard li:nth-child(3) { color:#94A3B8; }
+
+/* ════════════ Legend ════════════ */
+.legend-item { display:flex; align-items:center; gap:8px; font-size:13px; color:#64748B; margin-bottom:4px; }
+.legend-item .dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+
+/* ════════════ Nav Links ════════════ */
+.nav-link {
+  color:#64748B; text-decoration:none; font-size:13px; padding:4px 8px;
+  border-radius:4px; transition:all 0.15s;
+}
+.nav-link:hover { color:#1E293B; background:#F1F5F9; }
+.nav-link.active { color:#3B82F6; font-weight:600; }
+
+/* ════════════ Login Page ════════════ */
+.login-page { display:flex; justify-content:center; align-items:center; background:#F1F5F9; }
+.login-container { width:380px; position:relative; z-index:1; }
+.login-card {
+  background:rgba(255,255,255,0.92); border:1px solid #E2E8F0; border-radius:14px;
+  padding:36px 32px; box-shadow:0 4px 24px rgba(0,0,0,0.06);
+}
+.login-card h2 { text-align:center; font-size:20px; margin-bottom:28px; color:#1E293B; font-weight:700; }
+.login-card .form-row { margin-bottom:18px; }
+.login-card .form-row label { font-size:13px; color:#64748B; margin-bottom:8px; }
+.login-card input[type="text"], .login-card input[type="password"], .login-card select {
+  width:100%; height:50px; padding:0 14px; background:rgba(248,250,252,0.9); border:1px solid #CBD5E1;
+  border-radius:8px; color:#334155; font-size:13px; font-family:inherit;
+}
+.login-card input:focus-visible, .login-card select:focus-visible {
+  outline:none; border-color:#3B82F6; box-shadow:0 0 0 3px #3B82F620;
+}
+.login-error { color:#EF4444; font-size:13px; text-align:center; min-height:18px; margin-top:8px; }
+.login-footer { text-align:center; color:#CBD5E1; font-size:13px; margin-top:16px; }
+
+/* ════════════ Analysis ════════════ */
+.analysis-main { flex:1; display:flex; flex-direction:column; padding:16px; overflow-y:scroll; gap:12px; }
+.analysis-placeholder {
+  flex:1; display:flex; align-items:center; justify-content:center;
+  border:2px dashed #E2E8F0; border-radius:12px; background:rgba(248,250,252,0.9);
+  min-height:200px; color:#94A3B8; font-size:13px;
+}
+
+/* ════════════ Welcome ════════════ */
+.welcome-overlay {
+  flex:1; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.92);
+}
+.welcome-box { text-align:center; padding:40px; }
+.welcome-icon { font-size:64px; margin-bottom:20px; opacity:0.2; }
+.welcome-box h2 { font-size:22px; color:#CBD5E1; font-weight:400; margin-bottom:12px; }
+.welcome-box p { font-size:13px; color:#E2E8F0; }
+.welcome-box strong { color:#CBD5E1; }
+
+/* ════════════ Scrollbar ════════════ */
+.sidebar::-webkit-scrollbar, .cars-panel::-webkit-scrollbar { width:5px; }
+.sidebar::-webkit-scrollbar-thumb, .cars-panel::-webkit-scrollbar-thumb {
+  background:#CBD5E1; border-radius:3px;
+}
+
+/* Scrollbar */
+.sidebar::-webkit-scrollbar,.cars-panel::-webkit-scrollbar,#leaderboard::-webkit-scrollbar{width:8px}
+.sidebar::-webkit-scrollbar-thumb,.cars-panel::-webkit-scrollbar-thumb,#leaderboard::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:4px}
+.sidebar::-webkit-scrollbar-thumb:hover,.cars-panel::-webkit-scrollbar-thumb:hover{background:#94A3B8}
+.sidebar::-webkit-scrollbar-track,.cars-panel::-webkit-scrollbar-track{background:#F1F5F9;border-radius:4px}
+.cars-panel{max-height:calc(100vh - 52px);overflow-y:scroll!important}
+#leaderboard{max-height:none;overflow-y:scroll!important}
+.cars-panel::-webkit-scrollbar{width:8px;display:block!important}
+#leaderboard::-webkit-scrollbar{width:8px;display:block!important}
+.cars-panel::-webkit-scrollbar-thumb,#leaderboard::-webkit-scrollbar-thumb{background:#94A3B8;border-radius:4px;min-height:30px}
+.cars-panel::-webkit-scrollbar-track{background:#F1F5F9}
+.cars-panel{height:calc(100vh - 70px)!important;overflow-y:scroll!important}

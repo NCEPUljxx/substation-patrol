@@ -1,0 +1,16 @@
+{
+  "redisHost": "localhost",
+  "redisPort": 6379,
+  "mqHost": "localhost",
+  "mqPort": 5672,
+  "role": "infra",
+  "displayHost": "localhost",
+  "displayHttpPort": 8887,
+  "displayWsPort": 8888,
+  "dbHost": "localhost",
+  "dbPort": 1433,
+  "dbName": "substation-patrol",
+  "dbUser": "sa",
+  "dbPassword": "Root@1234",
+  "cars": ["Car001", "Car002", "Car003"]
+}

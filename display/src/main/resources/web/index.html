@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>变电站巡检仿真系统</title>
+<link rel="stylesheet" href="css/style.css?v=4">
+</head>
+<body>
+
+<!--
+  ═══════════════════════════════════════════════════════════════
+  页面布局（三列 + 顶栏）：
+
+  ┌──────────────────────────────────────────────────────────┐
+  │  顶栏：标题 + 全局信息（节拍、探索率、耗时、回放指示器）   │
+  ├────────┬───────────────────────────┬─────────────────────┤
+  │ 左侧栏 │      中央 Canvas 画布      │    右侧栏           │
+  │ ·配置  │       540 × 540 px        │    ·车辆状态卡      │
+  │ ·排行  │       30×30 网格          │     动态生成        │
+  │ ·图例  │                           │                     │
+  └────────┴───────────────────────────┴─────────────────────┘
+
+  设计依据：开发计划.md §4.2（暗色工业风配色 + Canvas 分层渲染）
+  ═══════════════════════════════════════════════════════════════
+-->
+
+<!-- ════════════ 顶栏 ════════════ -->
+<header class="header">
+  <h1>&#x26A1; 变电站巡检仿真系统</h1>
+  <div class="global-info">
+    <span id="info-tick">节拍: 0</span>
+    <span id="info-rate">探索率: 0%</span>
+    <span id="info-elapsed">&#x23F1; 00:00</span>
+    <span id="info-mode" class="mode-tag" hidden>&#x1F534; 回放中</span>
+    <span class="info-divider">|</span>
+    <span id="info-user">&#x1F464; 加载中...</span>
+    <a href="dashboard.html" class="nav-link">← 返回</a>
+  </div>
+</header>
+
+<div class="main-container">
+
+  <!-- ════════════ 左侧栏 ════════════ -->
+  <aside class="sidebar">
+
+    <!-- 任务配置 -->
+    <section class="panel">
+      <h3>任务配置</h3>
+
+      <div class="form-row">
+        <label for="cfg-width">地图尺寸</label>
+        <div class="input-pair">
+          <input type="number" id="cfg-width" value="30" min="10" max="100">
+          <span>&times;</span>
+          <input type="number" id="cfg-height" value="30" min="10" max="100">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label for="cfg-carCount">小车数量</label>
+        <input type="number" id="cfg-carCount" value="3" min="1" max="10" readonly>
+      </div>
+
+      <div class="form-row">
+        <label for="cfg-obstacleRatio">障碍物比例 <em id="lbl-obstacleRatio">15%</em></label>
+        <input type="range" id="cfg-obstacleRatio" value="0.15" min="0" max="0.5" step="0.05">
+      </div>
+
+      <div class="form-row">
+        <label for="cfg-algorithm">路径算法</label>
+        <select id="cfg-algorithm">
+          <option value="BFS">BFS</option>
+          <option value="ASTAR">A* (A-Star)</option>
+        </select>
+      </div>
+
+      <div class="form-row">
+        <label for="cfg-tickInterval">节拍间隔 <em id="lbl-tickInterval">500ms</em></label>
+        <input type="range" id="cfg-tickInterval" value="500" min="100" max="2000" step="100">
+      </div>
+
+      <!-- 主控制按钮 -->
+      <div class="btn-group">
+        <button id="btn-start"  class="btn btn-primary">&#x25B6; 开始</button>
+        <button id="btn-pause" class="btn btn-warning" disabled>&#x23EF; 暂停</button>
+        <button id="btn-reset" class="btn btn-danger">&#x21BA; 重置</button>
+      </div>
+
+      <!-- 附加功能按钮 -->
+      <div class="btn-group" style="margin-top:4px">
+        <button id="btn-addcar" class="btn secondary" title="动态添加一台新车">+ 添加小车</button>
+        <button id="btn-unity" class="btn" title="切换到 Unity 3D 地图">&#x1F3AE; 3D视图</button>
+      </div>
+
+      <!-- 回放控制 -->
+      <div class="form-row" style="margin-top:4px">
+        <label for="replay-run-select">历史场次</label>
+        <select id="replay-run-select" class="cfg-input">
+          <option value="current">当前场次（内存）</option>
+        </select>
+      </div>
+      <div class="btn-group" style="margin-top:4px">
+        <button id="btn-replay" class="btn replay">&#x25B6; 路径回放</button>
+        <button id="btn-live"   class="btn live" hidden>&#x25CF; 返回实时</button>
+      </div>
+
+      <!-- 回放进度条（默认隐藏） -->
+      <div id="replay-controls" class="replay-bar" hidden>
+        <span id="replay-tick-label">Tick 0 / 0</span>
+        <input type="range" id="replay-slider" value="0" min="0" max="0" step="1">
+        <div class="replay-btns">
+          <button id="replay-step-prev" class="btn-small">&#x23EE;&#x23EE;</button>
+          <button id="replay-toggle"    class="btn-small">&#x25B6;</button>
+          <button id="replay-step-next" class="btn-small">&#x23ED;&#x23ED;</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 步数排行榜 -->
+    <section class="panel">
+      <h3>&#x1F3C6; 步数排行（有效步数/总步数）</h3>
+      <ol id="leaderboard"></ol>
+    </section>
+
+    <!-- 图例（状态颜色对照） -->
+    <section class="panel">
+      <h3>图例</h3>
+      <div class="legend-item">
+        <span class="dot" style="background:#9E9E9E"></span>IDLE 空闲
+      </div>
+      <div class="legend-item">
+        <span class="dot" style="background:#FF9800"></span>WAITING_ROUTE 等待路径
+      </div>
+      <div class="legend-item">
+        <span class="dot" style="background:#4CAF50"></span>READY 就绪
+      </div>
+      <div class="legend-item">
+        <span class="dot" style="background:#2196F3"></span>MOVING 移动中
+      </div>
+      <div class="legend-item">
+        <span class="dot" style="background:#F44336"></span>BLOCKED 受阻
+      </div>
+    </section>
+  </aside>
+
+  <!-- ════════════ 中央地图 ════════════ -->
+  <main class="map-area">
+    <div id="welcome-overlay" class="welcome-overlay">
+      <div class="welcome-box">
+        <div class="welcome-icon">⚡</div>
+        <h2>欢迎使用变电站巡检仿真系统</h2>
+        <p>请点击左侧 <strong>▶ 开始</strong> 按钮启动仿真任务</p>
+      </div>
+    </div>
+    <div class="map-stack" id="map-stack" style="display:none">
+      <canvas id="map-canvas"></canvas>
+      <canvas id="car-canvas"></canvas>
+    </div>
+    <div id="unity-shell" class="unity-shell" hidden>
+      <iframe id="unity-frame" class="unity-frame" src="unity/index.html" title="Unity 3D 地图" tabindex="-1"></iframe>
+      <div id="unity-input" class="unity-input-layer" title="左键拖移 | Shift+左键或右键旋转 | 滚轮缩放"></div>
+    </div>
+  </main>
+
+  <!-- ════════════ 右侧栏：车辆状态卡 ════════════ -->
+  <aside class="cars-panel" id="cars-panel">
+    <!-- 动态生成，初始显示占位文字 -->
+    <div class="car-card placeholder">
+      <p>等待任务启动...</p>
+      <p class="hint">点击左侧"开始"按钮</p>
+    </div>
+  </aside>
+
+</div>
+
+<!-- 修改密码弹窗 -->
+<div id="changepw-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:1000;justify-content:center;align-items:center;">
+  <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;padding:24px;width:340px;">
+    <h3 style="margin-bottom:16px;color:#1E293B">修改密码</h3>
+    <input type="password" id="cpw-old" placeholder="旧密码" style="width:100%;height:36px;margin-bottom:10px;padding:0 10px;background:#F8FAFC;border:1px solid #CBD5E1;border-radius:6px;color:#1E293B;font-size:13px">
+    <input type="password" id="cpw-new" placeholder="新密码(至少6位)" style="width:100%;height:36px;margin-bottom:10px;padding:0 10px;background:#F8FAFC;border:1px solid #CBD5E1;border-radius:6px;color:#1E293B;font-size:13px">
+    <input type="password" id="cpw-confirm" placeholder="确认新密码" style="width:100%;height:36px;margin-bottom:10px;padding:0 10px;background:#F8FAFC;border:1px solid #CBD5E1;border-radius:6px;color:#1E293B;font-size:13px">
+    <p id="cpw-err" style="color:#EF4444;font-size:12px;min-height:18px"></p>
+    <div style="display:flex;gap:8px">
+      <button id="cpw-submit" class="btn btn-primary" style="flex:1">确认修改</button>
+      <button id="cpw-cancel" class="btn" style="flex:1;background:#F1F5F9;color:#64748B">取消</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/auth.js?v=11"></script>
+<script src="js/unity-view.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>

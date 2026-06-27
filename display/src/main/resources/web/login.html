@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>登录 — 变电站巡检仿真系统</title>
+<link rel="stylesheet" href="css/style.css?v=4">
+<style>.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.6s linear infinite;vertical-align:middle;margin-right:4px}@keyframes spin{to{transform:rotate(360deg)}}</style>
+</head>
+<body class="login-page">
+
+<div class="login-container">
+  <div class="login-card">
+    <h2>&#x26A1; 变电站巡检仿真系统</h2>
+
+    <div class="form-row">
+      <label for="login-username">&#x1F464; 用户名</label>
+      <input type="text" id="login-username" placeholder="请输入用户名" autocomplete="username">
+    </div>
+
+    <div class="form-row">
+      <label for="login-password">&#x1F512; 密码</label>
+      <input type="password" id="login-password" placeholder="请输入密码" autocomplete="current-password">
+    </div>
+
+    <div class="form-row" id="cpw-row" style="display:none">
+      <label for="reg-confirm">&#x1F512; 确认密码</label>
+      <input type="password" id="reg-confirm" placeholder="请再次输入密码">
+    </div>
+
+    <!-- 登录模式 -->
+    <div id="login-mode">
+      <div class="form-row">
+        <button id="login-submit" class="btn primary" style="width:100%">登 录</button>
+      </div>
+    </div>
+
+    <!-- 注册模式（默认隐藏） -->
+    <div id="register-mode" style="display:none">
+      <div class="form-row">
+        <label for="reg-display">&#x1F464; 显示名称</label>
+        <input type="text" id="reg-display" placeholder="如：张三">
+      </div>
+      <div class="form-row">
+        <label for="reg-role">角色</label>
+        <select id="reg-role">
+          <option value="simulator">仿真员</option>
+          <option value="analyst">统计分析员</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <button id="register-submit" class="btn info" style="width:100%">注 册</button>
+      </div>
+    </div>
+
+    <p id="login-error" class="login-error"></p>
+    <p class="login-footer">
+      <span id="toggle-link" style="color:#58a6ff;cursor:pointer">没有账号？点击注册</span>
+    </p>
+  </div>
+</div>
+
+<script src="js/auth.js?v=11"></script>
+<script>
+(function () {
+  'use strict';
+  Auth.showKickMessageIfAny();
+  var $u = document.getElementById('login-username');
+  var $p = document.getElementById('login-password');
+  var $btn = document.getElementById('login-submit');
+  var $err = document.getElementById('login-error');
+  var $toggle  = document.getElementById('toggle-link');
+  var $loginDiv = document.getElementById('login-mode');
+  var $regDiv   = document.getElementById('register-mode');
+  var $regBtn   = document.getElementById('register-submit');
+  var isReg = false;
+
+  $toggle.addEventListener('click', function(){
+    isReg = !isReg;
+    $loginDiv.style.display = isReg ? 'none' : 'block';
+    $regDiv.style.display   = isReg ? 'block' : 'none';
+    document.getElementById('cpw-row').style.display = isReg ? 'block' : 'none';
+    $toggle.textContent = isReg ? '已有账号？点击登录' : '没有账号？点击注册';
+    $err.textContent = '';
+  });
+
+  $btn.addEventListener('click', async function () {
+    var u = $u.value.trim(), p = $p.value;
+    if (!u || !p) { $err.textContent = '请输入用户名和密码'; return; }
+    $btn.disabled = true; $btn.innerHTML = '<span class="spinner"></span> 登录中...'; $err.textContent = '';
+    try {
+      var d = await Auth.login(u, p);
+      if (d && d.success) {
+        window.location.href = '/dashboard.html';
+      } else {
+        $err.textContent = (d && d.error) || '用户名或密码错误';
+      }
+    } catch (e) {
+      $err.textContent = '网络错误';
+    } finally {
+      $btn.disabled = false; $btn.innerHTML = '登 录';
+    }
+  });
+  $p.addEventListener('keydown', function(e){ if(e.key==='Enter') $btn.click(); });
+
+  $regBtn.addEventListener('click', function(){
+    var u = $u.value.trim(), p = $p.value;
+    var d = document.getElementById('reg-display').value.trim();
+    var c = document.getElementById('reg-confirm').value;
+    var r = document.getElementById('reg-role').value;
+    if (!u || !p || !d || !c) { $err.textContent = '请填写所有字段'; return; }
+    if (p.length < 6) { $err.textContent = '密码至少6位'; return; }
+    if (p !== c) { $err.textContent = '两次密码不一致'; return; }
+    $regBtn.disabled = true; $regBtn.innerHTML = '<span class="spinner"></span> 注册中...';
+    fetch('/api/auth/register', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({username:u, password:p, displayName:d, role:r})
+    }).then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d && d.success) { alert(d.message || '操作成功'); $toggle.click(); }
+      else { $err.textContent = (d && d.error) || '注册失败'; }
+    }).catch(function(){ $err.textContent = '网络错误'; })
+    .finally(function(){ $regBtn.disabled = false; $regBtn.textContent = '注 册'; });
+  });
+})();
+</script>
+
+<script src="js/particles.js"></script>
+</body>
+</html>
